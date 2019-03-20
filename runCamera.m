@@ -1,9 +1,12 @@
-function imzoom = runCamera()
+function im = runCamera()
+%function [xaxreal, yaxreal, imzoomNormalized] = runCamera()
 global fittype
 global toFWHM
 
 % add .mex functions for camera to path
-addpath('matcam');
+if ~isdeployed
+    addpath('matcam');
+end
 
 % initialize camera, check if it's closed first
 try
@@ -14,6 +17,9 @@ ccdWi = double(wi);
 ccdHi = double(hi);
 pix = 5.2;      % pixel size in µm
 magn = 66;      % (estimated) magnification
+dx = pix/magn;
+dy = dx;
+airyInt = 0.302593;         %Airy disk of NA=0.8 objective integrated over full surface
 
 % get camera parameters
 maxgain = GetMaxGain(id);
@@ -91,19 +97,19 @@ zoombut = uicontrol('Style', 'togglebutton', ...
     'Position', poszoombut, 'String', 'Zoom Enhance!');
 
 % radio dials for fit type
-buttongroupPosition = [0.32 0.03 0.15 0.05];
+buttongroupPosition = [0.32 0.03 0.1 0.05];
 bg = uibuttongroup('Visible', 'off', ...
-                   'Position', buttongroupPosition, ...
-                   'SelectionChangeFcn', @buttonSelection);
+    'Position', buttongroupPosition, ...
+    'SelectionChangeFcn', @buttonSelection);
 r1 = uicontrol(bg, 'Style', 'radiobutton', ...
-                   'String', 'Gaussian', ...
-                   'Position', [0 0 100 50]);
+    'String', 'Gaussian', ...
+    'Position', [0 0 100 50]);
 r2 = uicontrol(bg, 'Style', 'radiobutton', ...
-                   'String', 'Airy', ...
-                   'Position', [100 0 100 50]);
+    'String', 'Airy', ...
+    'Position', [100 0 100 50]);
 bg.Visible = 'on';
 % defaults here:
-fittype = 'a*exp( -(x - b1)^2 / (2*c^2) - (y - b2)^2 / (2*e^2)) + d';
+fittype = 'a * (2*besselj(1, sqrt((x-b1)^2/c^2 + (y-b2)^2/e^2)) / (sqrt((x-b1)^2/c^2 + (y-b2)^2/e^2)))^2 + d';
 toFWHM = 2.355;
 
 % exit button
@@ -134,9 +140,20 @@ while ishandle(fh)
         yaxreal = double((yaxpix - a)) * pix / magn;
         imzoom = im(yaxpix, xaxpix);
         axes(axzoom);
-        imagesc(xaxreal, yaxreal, imzoom(:, :, 1));
+        imagesc(xaxreal, yaxreal, imzoom(:, :, 1), [0 255]);
         axzoom.YDir = 'normal';
         colormap(axzoom, 'jet');
+        
+        % Calculate Strehl ratio
+        background = mean(mean(imzoom(1:10, 1:10, 1)));
+        disp(maxval);
+        imMinusBackground = imzoom(:, :, 1) - background;
+        imzoomNormalized = airyInt * imMinusBackground ...
+            / trapz(yaxreal, trapz(xaxreal, imMinusBackground, 2));
+        strehlRat = max(max(imzoomNormalized));
+        if fitgo.Value == 0
+            ant.String = sprintf('SR = %.2f', strehlRat);
+        end
     end
     
     ih.CData = im;
@@ -153,9 +170,13 @@ while ishandle(fh)
                 imagesc(xaxreal, yaxreal, fit2D(X, Y));
                 colormap(fitax, 'jet');
                 
+                %Alternatively calculate Strehl ratio from Airy fit:
+                %strehlRat = fit2D.a*0.3026/(4*pi*fit2D.a*fit2D.c*fit2D.e);
+                
                 % Update fitted FWHMs in figure
-                ant.String = sprintf('FWHM =\n%.2f µm x %.2f µm', ...
-                    [toFWHM*fit2D.c toFWHM*fit2D.e]);
+                ant.String = [sprintf('FWHM = %.2f µm x %.2f µm\n', ...
+                    [toFWHM*fit2D.c toFWHM*fit2D.e]), ...
+                    sprintf('SR = %.2f', strehlRat)];
             catch
                 status.String = 'Something went wrong, try again!';
                 fitgo.Value = 0;
