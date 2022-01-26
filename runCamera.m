@@ -24,7 +24,6 @@ dy = dx;
 NA = 0.8;
 lambda = 0.78;
 airyInt = calcAiryInt(NA, lambda);
-disp(airyInt);
 
 % get camera parameters
 maxgain = GetMaxGain(id);
