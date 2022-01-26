@@ -1,6 +1,5 @@
 %calcAiryInt.m
-%Calculates the volume underneath the Airy disk given NA and wavelenght.
-
+%Calculates the volume underneath the Airy disk given NA and wavelength.
 function integralValue = calcAiryInt(NA, lambda)
     k = 2*pi/lambda;
     dr = 0.01;
