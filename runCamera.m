@@ -19,7 +19,12 @@ pix = 5.2;      % pixel size in µm
 magn = 66;      % (estimated) magnification
 dx = pix/magn;
 dy = dx;
-airyInt = 0.302593;         %Airy disk of NA=0.8 objective integrated over full surface
+
+%airyInt = 0.302593;         %Airy disk of NA=0.8 objective integrated over full surface
+NA = 0.8;
+lambda = 0.78;
+airyInt = calcAiryInt(NA, lambda);
+disp(airyInt);
 
 % get camera parameters
 maxgain = GetMaxGain(id);
@@ -109,7 +114,7 @@ r2 = uicontrol(bg, 'Style', 'radiobutton', ...
     'Position', [100 0 100 50]);
 bg.Visible = 'on';
 % defaults here:
-fittype = 'a * (2*besselj(1, sqrt((x-b1)^2/c^2 + (y-b2)^2/e^2)) / (sqrt((x-b1)^2/c^2 + (y-b2)^2/e^2)))^2 + d';
+fittype = 'a*exp( -(x - b1)^2 / (2*c^2) - (y - b2)^2 / (2*e^2)) + d';
 toFWHM = 2.355;
 
 % exit button
@@ -162,7 +167,7 @@ while ishandle(fh)
         if fitgo.Value == 1 && zoombut.Value == 1
             try
                 status.String = 'Fitting';
-                initconds2D = [maxval, 0.001, 0.001, 0.2, 10, 0.2];
+                initconds2D = [maxval, 0.001, 0.001, 100, 0.2, 100];
                 [Xo, Yo, Zo] = prepareSurfaceData(xaxreal, yaxreal, imzoom);
                 fit2D = fit([Xo, Yo], Zo, fittype, 'StartPoint', initconds2D);
                 axes(fitax);
